@@ -63,7 +63,7 @@ def preprocess_state(obs):
     # Instead of trying to determine the exact grid size, we'll use a normalization
     # approach that works for any reasonable grid size (assuming it's at least 5x5)
     # We'll use a reference size of 10 which should handle most test cases
-    reference_size = 10.0
+    reference_size = 5.0
     
     # Create feature vector with normalized positions
     features = [
@@ -113,10 +113,18 @@ def shape_reward(obs, next_obs, action, reward):
     Apply reward shaping to encourage more efficient behavior.
     """
     # Extract information from observations
-    taxi_row, taxi_col, _, _, _, _, _, _, _, _, _, _, _, _, passenger_look, destination_look = obs
+    taxi_row, taxi_col, _, _, _, _, _, _, _, _, obstacle_north, obstacle_south, obstacle_east, obstacle_west, passenger_look, destination_look = obs
     next_taxi_row, next_taxi_col, _, _, _, _, _, _, _, _, _, _, _, _, next_passenger_look, next_destination_look = next_obs
     
     shaped_reward = reward
+    
+    # Heavily penalize actions that would hit obstacles
+    # Check if the agent tried to move into an obstacle
+    if (action == 0 and obstacle_south == 1) or \
+       (action == 1 and obstacle_north == 1) or \
+       (action == 2 and obstacle_east == 1) or \
+       (action == 3 and obstacle_west == 1):
+        shaped_reward -= 10.0  # Severe penalty for trying to hit obstacles
     
     # Reward for getting closer to passenger when not carrying
     if passenger_look == 0 and next_passenger_look == 1:
@@ -167,14 +175,16 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     # Training loop
     best_reward = -float('inf')
     losses = []
-    episode_rewards = []  # Renamed to avoid confusion
+    episode_rewards = []
     
     for episode in tqdm(range(num_episodes)):
         obs, _ = env.reset()
+            
         state_tensor = preprocess_state(obs)
         done = False
         total_reward = 0
         episode_losses = []
+        steps_rewards = []
         
         while not done:
             # Epsilon-greedy action selection
@@ -187,9 +197,10 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             
             # Take action and observe next state
             next_obs, reward, done, _, _ = env.step(action)
+                
             next_state_tensor = preprocess_state(next_obs)
             
-            # Apply reward shaping
+            # Apply reward shaping with emphasis on obstacle avoidance
             shaped_reward = shape_reward(obs, next_obs, action, reward)
             
             # Store transition in replay buffer
@@ -210,12 +221,12 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             # Train on a batch of transitions if buffer has enough samples
             if len(replay_buffer) >= batch_size:
                 # Sample a batch from replay buffer
-                states, actions, batch_rewards, next_states, dones = replay_buffer.sample(batch_size)  # Renamed to batch_rewards
+                states, actions, rewards, next_states, dones = replay_buffer.sample(batch_size)
                 
                 # Convert to tensors
                 states = torch.FloatTensor(states).to(DEVICE)
                 actions = torch.LongTensor(actions).to(DEVICE)
-                batch_rewards = torch.FloatTensor(batch_rewards).to(DEVICE)  # Using batch_rewards instead
+                rewards = torch.FloatTensor(rewards).to(DEVICE)
                 next_states = torch.FloatTensor(next_states).to(DEVICE)
                 dones = torch.FloatTensor(dones).to(DEVICE)
                 
@@ -225,7 +236,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
                 # Compute target Q values with target network
                 with torch.no_grad():
                     max_next_q_values = target_net(next_states).max(1)[0]
-                    target_q_values = batch_rewards + gamma * max_next_q_values * (1 - dones)  # Using batch_rewards
+                    target_q_values = rewards + gamma * max_next_q_values * (1 - dones)
                 
                 # Compute loss and update
                 loss = criterion(current_q_values, target_q_values)
@@ -238,7 +249,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
                 
                 # Track loss
                 episode_losses.append(loss.item())
-        
+                steps_rewards.append(total_reward)
+
         # Decay epsilon
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
         
@@ -248,8 +260,9 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
         
         # Track metrics
         avg_loss = np.mean(episode_losses) if episode_losses else 0
+        avg_reward = np.mean(steps_rewards) if steps_rewards else 0
         losses.append(avg_loss)
-        episode_rewards.append(total_reward)  # Using episode_rewards list
+        episode_rewards.append(total_reward)
         
         # Track best reward
         if total_reward > best_reward:
@@ -259,11 +272,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
         
         # Print progress
         if (episode + 1) % 100 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}, Reward: {total_reward:.2f}, Best: {best_reward:.2f}, Loss: {avg_loss:.6f}, Epsilon: {epsilon:.4f}")
+            print(f"Episode {episode + 1}/{num_episodes}, Average Reward: {avg_reward:.2f}, Best: {best_reward:.2f}, Average Loss: {avg_loss:.6f}, Epsilon: {epsilon:.4f}")
     
-    # Save training metrics
-    np.save("training_losses.npy", np.array(losses))
-    np.save("training_rewards.npy", np.array(episode_rewards))  # Using episode_rewards
     
     print("Training completed and model saved.")
 
