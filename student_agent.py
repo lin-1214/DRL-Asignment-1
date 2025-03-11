@@ -20,9 +20,9 @@ class QNetwork(nn.Module):
         self.network = nn.Sequential(
             nn.Linear(input_dim, 64),
             nn.ReLU(),
-            nn.Linear(64, 64),
+            nn.Linear(64, 32),
             nn.ReLU(),
-            nn.Linear(64, output_dim)
+            nn.Linear(32, output_dim)
         )
 
         # Initialize weights with custom initialization
@@ -80,13 +80,13 @@ def preprocess_state(obs):
     ]
     
     # Calculate Manhattan distances from taxi to each station
-    distances_to_stations = []
-    for station_row, station_col in station_positions:
-        manhattan_dist = abs(taxi_row - station_row) + abs(taxi_col - station_col)
-        # Normalize by dividing by a reasonable maximum distance (e.g., grid size)
-        # Assuming grid is no larger than 10x10
-        normalized_dist = manhattan_dist / 20.0  
-        distances_to_stations.append(normalized_dist)
+    # distances_to_stations = []
+    # for station_row, station_col in station_positions:
+    #     manhattan_dist = abs(taxi_row - station_row) + abs(taxi_col - station_col)
+    #     # Normalize by dividing by a reasonable maximum distance (e.g., grid size)
+    #     # Assuming grid is no larger than 10x10
+    #     normalized_dist = manhattan_dist / 20.0  
+    #     distances_to_stations.append(normalized_dist)
     
     # Create feature vector with more meaningful relative information
     features = [
@@ -96,21 +96,12 @@ def preprocess_state(obs):
         obstacle_east,
         obstacle_west,
         
-        # Passenger and destination information (binary)
-        passenger_look,
-        destination_look,
-        
-        # Distances to all stations (continuous, normalized)
-        distances_to_stations[0],
-        distances_to_stations[1],
-        distances_to_stations[2],
-        distances_to_stations[3],
-        
-        # Minimum distance to any station (helps with general navigation)
-        min(distances_to_stations)
+        # # Passenger and destination information (binary)
+        # passenger_look,
+        # destination_look
     ]
     
-    return torch.FloatTensor(features).to(DEVICE), distances_to_stations
+    return torch.FloatTensor(features).to(DEVICE)
 
 def get_action(obs):
     """
@@ -120,7 +111,7 @@ def get_action(obs):
     # Load model if it exists and hasn't been loaded yet
     if not hasattr(get_action, "model"):
         if os.path.exists(MODEL_FILE):
-            get_action.model = QNetwork(11, 6).to(DEVICE)
+            get_action.model = QNetwork(4, 6).to(DEVICE)
             get_action.model.load_state_dict(torch.load(MODEL_FILE, map_location=DEVICE))
             get_action.model.eval()
         else:
@@ -132,7 +123,7 @@ def get_action(obs):
         return random.choice([0, 1, 2, 3, 4, 5])
     
     # Preprocess state and get Q-values
-    state_tensor, _ = preprocess_state(obs)
+    state_tensor = preprocess_state(obs)
     with torch.no_grad():
         q_values = get_action.model(state_tensor)
     
@@ -156,8 +147,8 @@ def shape_reward(obs, next_obs, action, reward):
     next_passenger_look, next_destination_look = next_obs
     
     # Get distances to stations for current and next state
-    _, current_distances = preprocess_state(obs)
-    _, next_distances = preprocess_state(next_obs)
+    # _, current_distances = preprocess_state(obs)
+    # _, next_distances = preprocess_state(next_obs)
     
     shaped_reward = reward
     
@@ -170,29 +161,29 @@ def shape_reward(obs, next_obs, action, reward):
     
     # Reward for being in open space (no obstacles)
     if obstacle_north == 0 and obstacle_south == 0 and obstacle_east == 0 and obstacle_west == 0:
-        shaped_reward += 15  # Small bonus for being in open space
+        shaped_reward += 15.0  # Small bonus for being in open space
     
-    # Find the minimum distance to any station in current and next state
-    min_current_distance = min(current_distances)
-    min_next_distance = min(next_distances)
+    # # Find the minimum distance to any station in current and next state
+    # min_current_distance = min(current_distances)
+    # min_next_distance = min(next_distances)
     
     # If not carrying a passenger, reward for getting closer to any station
-    if passenger_look == 0:
-        # If we're getting closer to the nearest station
-        if min_next_distance < min_current_distance:
-            shaped_reward += 1.0
-        # If we're moving away from all stations
-        elif min_next_distance > min_current_distance:
-            shaped_reward -= 1.0
+    # if passenger_look == 0:
+    #     # If we're getting closer to the nearest station
+    #     if min_next_distance < min_current_distance:
+    #         shaped_reward += 1.0
+    #     # If we're moving away from all stations
+    #     elif min_next_distance > min_current_distance:
+    #         shaped_reward -= 1.0
     
-    # If carrying a passenger, reward for getting closer to destination
-    if passenger_look == 1:
-        # If we're getting closer to any station (potential destination)
-        if min_next_distance < min_current_distance:
-            shaped_reward += 2.0
-        # If we're moving away from all stations
-        elif min_next_distance > min_current_distance:
-            shaped_reward -= 2.0
+    # # If carrying a passenger, reward for getting closer to destination
+    # if passenger_look == 1:
+    #     # If we're getting closer to any station (potential destination)
+    #     if min_next_distance < min_current_distance:
+    #         shaped_reward += 2.0
+    #     # If we're moving away from all stations
+    #     elif min_next_distance > min_current_distance:
+    #         shaped_reward -= 2.0
     
     # Reward for successful pickup
     if action == 4 and passenger_look == 1 and next_passenger_look == 1:
@@ -227,8 +218,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     env = SimpleTaxiEnv()
     
     # Initialize Q-networks (policy and target)
-    policy_net = QNetwork(11, 6).to(DEVICE)
-    target_net = QNetwork(11, 6).to(DEVICE)
+    policy_net = QNetwork(4, 6).to(DEVICE)
+    target_net = QNetwork(4, 6).to(DEVICE)
     target_net.load_state_dict(policy_net.state_dict())
     target_net.eval()  # Target network is only used for inference
     
@@ -254,7 +245,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     for episode in tqdm(range(num_episodes)):
         obs, _ = env.reset()
             
-        state_tensor, _ = preprocess_state(obs)  # Only use the tensor, ignore distances
+        state_tensor = preprocess_state(obs)  # Only use the tensor, ignore distances
         done = False
         total_reward = 0
         episode_losses = []
@@ -272,7 +263,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             # Take action and observe next state
             next_obs, reward, done, _, _ = env.step(action)
                 
-            next_state_tensor, _ = preprocess_state(next_obs)  # Only use the tensor
+            next_state_tensor = preprocess_state(next_obs)  # Only use the tensor
             
             # Apply reward shaping
             shaped_reward = shape_reward(obs, next_obs, action, reward)
