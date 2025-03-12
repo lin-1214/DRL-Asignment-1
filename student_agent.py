@@ -194,7 +194,21 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     # Initialize optimizer
     optimizer = optim.Adam(policy_net.parameters(), lr=0.005)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200, verbose=True)
-    criterion = nn.HuberLoss(delta=1.0)
+    
+    # Use a weighted loss function to balance between TD error and shaped rewards
+    # This allows you to control how much the shaped rewards influence learning
+    def custom_loss(predicted_q, target_q, states, actions, shaped_rewards, alpha=0.7):
+        # Standard TD error
+        td_error = nn.functional.smooth_l1_loss(predicted_q, target_q, reduction='none')
+        
+        # Additional loss component based on shaped rewards
+        # This encourages the network to predict higher Q-values for actions with higher shaped rewards
+        shaped_reward_term = -shaped_rewards  # Negative because we want to maximize rewards
+        
+        # Combine the two loss components with a weighting factor alpha
+        combined_loss = alpha * td_error + (1 - alpha) * shaped_reward_term
+        
+        return combined_loss.mean()
     
     # Initialize replay buffer
     replay_buffer = ReplayBuffer(capacity=50000)
@@ -213,7 +227,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     for episode in tqdm(range(num_episodes)):
         obs, _ = env.reset()
             
-        state_tensor = preprocess_state(obs)  # Only use the tensor, ignore distances
+        state_tensor = preprocess_state(obs)
         done = False
         total_reward = 0
         episode_losses = []
@@ -231,7 +245,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             # Take action and observe next state
             next_obs, reward, done, _ = env.step(action)
                 
-            next_state_tensor = preprocess_state(next_obs)  # Only use the tensor
+            next_state_tensor = preprocess_state(next_obs)
             
             # Apply reward shaping
             shaped_reward = shape_reward(obs, next_obs, action, reward)
@@ -240,7 +254,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             replay_buffer.push(
                 state_tensor.cpu().numpy(),
                 action,
-                shaped_reward,
+                shaped_reward,  # Use shaped reward for training
                 next_state_tensor.cpu().numpy(),
                 done
             )
@@ -254,12 +268,12 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             # Train on a batch of transitions if buffer has enough samples
             if len(replay_buffer) >= batch_size:
                 # Sample a batch from replay buffer
-                states, actions, rewards, next_states, dones = replay_buffer.sample(batch_size)
+                states, actions, shaped_rewards, next_states, dones = replay_buffer.sample(batch_size)
                 
                 # Convert to tensors
                 states = torch.FloatTensor(states).to(DEVICE)
                 actions = torch.LongTensor(actions).to(DEVICE)
-                rewards = torch.FloatTensor(rewards).to(DEVICE)
+                shaped_rewards = torch.FloatTensor(shaped_rewards).to(DEVICE)
                 next_states = torch.FloatTensor(next_states).to(DEVICE)
                 dones = torch.FloatTensor(dones).to(DEVICE)
                 
@@ -272,10 +286,10 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
                     next_action_indices = policy_net(next_states).max(1)[1]
                     # Evaluate Q-values for those actions using target network
                     next_q_values = target_net(next_states).gather(1, next_action_indices.unsqueeze(1)).squeeze(1)
-                    target_q_values = rewards + gamma * next_q_values * (1 - dones)
+                    target_q_values = shaped_rewards + gamma * next_q_values * (1 - dones)
                 
-                # Compute loss and update
-                loss = criterion(current_q_values, target_q_values)
+                # Use custom loss function that incorporates both TD error and shaped rewards
+                loss = custom_loss(current_q_values, target_q_values, states, actions, shaped_rewards)
                 
                 # Gradient clipping to prevent exploding gradients
                 optimizer.zero_grad()
