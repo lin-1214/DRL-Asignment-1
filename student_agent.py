@@ -20,9 +20,9 @@ class QNetwork(nn.Module):
         self.network = nn.Sequential(
             nn.Linear(input_dim, 64),
             nn.ReLU(),
-            nn.Linear(64, 32),
+            nn.Linear(64, 64),
             nn.ReLU(),
-            nn.Linear(32, output_dim)
+            nn.Linear(64, output_dim)
         )
 
         # Initialize weights with custom initialization
@@ -34,12 +34,11 @@ class QNetwork(nn.Module):
             nn.init.kaiming_uniform_(module.weight, nonlinearity='relu')
             # Initialize bias to small random values
             if module.bias is not None:
-                nn.init.uniform_(module.bias, -0.05, 0.05)
+                nn.init.uniform_(module.bias, -0.1, 0.1)
     
     def forward(self, x):
         return self.network(x)
 
-# Add a ReplayBuffer class for experience replay
 class ReplayBuffer:
     def __init__(self, capacity=10000):
         self.capacity = capacity
@@ -153,58 +152,30 @@ def shape_reward(obs, next_obs, action, reward):
     shaped_reward = reward
     
     # Penalty for trying to move into obstacles
-    if (action == 0 and obstacle_south == 1) or \
+    if (action == 0 and next_obstacle_south == 1) or \
+       (action == 1 and next_obstacle_north == 1) or \
+       (action == 2 and next_obstacle_east == 1) or \
+       (action == 3 and next_obstacle_west == 1):
+        shaped_reward -= 5.0
+    
+    # Penalty for move into obstacles
+    elif (action == 0 and obstacle_south == 1) or \
        (action == 1 and obstacle_north == 1) or \
        (action == 2 and obstacle_east == 1) or \
        (action == 3 and obstacle_west == 1):
-        shaped_reward -= 15.0
+        shaped_reward -= 20.0
+
+    elif next_obstacle_north == 0 and next_obstacle_south == 0 and next_obstacle_east == 0 and next_obstacle_west == 0 and not (action == 4 or action == 5):
+        shaped_reward += 20.0
+
+    elif action == 4 or action == 5:
+        shaped_reward -= 5.0
     
-    # Reward for being in open space (no obstacles)
-    if obstacle_north == 0 and obstacle_south == 0 and obstacle_east == 0 and obstacle_west == 0:
-        shaped_reward += 15.0  # Small bonus for being in open space
-    
-    # # Find the minimum distance to any station in current and next state
-    # min_current_distance = min(current_distances)
-    # min_next_distance = min(next_distances)
-    
-    # If not carrying a passenger, reward for getting closer to any station
-    # if passenger_look == 0:
-    #     # If we're getting closer to the nearest station
-    #     if min_next_distance < min_current_distance:
-    #         shaped_reward += 1.0
-    #     # If we're moving away from all stations
-    #     elif min_next_distance > min_current_distance:
-    #         shaped_reward -= 1.0
-    
-    # # If carrying a passenger, reward for getting closer to destination
-    # if passenger_look == 1:
-    #     # If we're getting closer to any station (potential destination)
-    #     if min_next_distance < min_current_distance:
-    #         shaped_reward += 2.0
-    #     # If we're moving away from all stations
-    #     elif min_next_distance > min_current_distance:
-    #         shaped_reward -= 2.0
-    
-    # Reward for successful pickup
-    if action == 4 and passenger_look == 1 and next_passenger_look == 1:
-        shaped_reward += 5.0
-    
-    # Penalty for trying pickup when no passenger is present
-    if action == 4 and passenger_look == 0:
-        shaped_reward -= 1.0
-    
-    # Penalty for trying dropoff when not at destination
-    if action == 5 and destination_look == 0:
-        shaped_reward -= 1.0
-    
-    # Penalty for not moving (staying in the same position)
-    if action < 4 and taxi_row == next_taxi_row and taxi_col == next_taxi_col:
-        shaped_reward -= 0.2
     
     return shaped_reward
 
 def soft_update(target_net, policy_net, tau=0.001):
-    """Soft update of target network: θ′ ← τθ + (1 − τ)θ′"""
+    """Soft update of target network: θ′ ← τθ + (1 - τ)θ′"""
     for target_param, policy_param in zip(target_net.parameters(), policy_net.parameters()):
         target_param.data.copy_(tau * policy_param.data + (1.0 - tau) * target_param.data)
 
@@ -312,7 +283,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
                 # Gradient clipping to prevent exploding gradients
                 optimizer.zero_grad()
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), max_norm=1.0)
+                torch.nn.utils.clip_grad_norm_(policy_net.parameters(), max_norm=1)
                 optimizer.step()
                 
                 # Update learning rate scheduler
