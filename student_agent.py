@@ -309,7 +309,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=10000)
+    train_agent(num_episodes=15000)
 
 # else:
 #     model_path = "q_network.pt"
