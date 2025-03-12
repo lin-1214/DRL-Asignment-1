@@ -76,13 +76,12 @@ def preprocess_state(obs):
     ]
     
     # Calculate Manhattan distances from taxi to each station
-    # distances_to_stations = []
-    # for station_row, station_col in station_positions:
-    #     manhattan_dist = abs(taxi_row - station_row) + abs(taxi_col - station_col)
-    #     # Normalize by dividing by a reasonable maximum distance (e.g., grid size)
-    #     # Assuming grid is no larger than 10x10
-    #     normalized_dist = manhattan_dist / 20.0  
-    #     distances_to_stations.append(normalized_dist)
+    distances_to_stations = []
+    for station_row, station_col in station_positions:
+        manhattan_dist = abs(taxi_row - station_row) + abs(taxi_col - station_col)
+        # Normalize by dividing by a reasonable maximum distance (e.g., grid size)
+        # Assuming grid is no larger than 10x10
+        distances_to_stations.append(manhattan_dist)
     
     # Create feature vector with more meaningful relative information
     features = [
@@ -94,7 +93,11 @@ def preprocess_state(obs):
         
         # # Passenger and destination information (binary)
         # passenger_look,
-        # destination_look
+        # # destination_look
+        # distances_to_stations[0],
+        # distances_to_stations[1],
+        # distances_to_stations[2],
+        # distances_to_stations[3]
     ]
     
     return torch.FloatTensor(features).to(DEVICE)
@@ -134,9 +137,20 @@ def shape_reward(obs, next_obs, action, reward):
     obstacle_north, obstacle_south, obstacle_east, obstacle_west, \
     passenger_look, destination_look = obs
     
-    next_taxi_row, next_taxi_col, _, _, _, _, _, _, _, _, \
+    next_taxi_row, next_taxi_col, next_station0_row, next_station0_col, next_station1_row, next_station1_col, \
+    next_station2_row, next_station2_col, next_station3_row, next_station3_col, \
     next_obstacle_north, next_obstacle_south, next_obstacle_east, next_obstacle_west, \
     next_passenger_look, next_destination_look = next_obs
+
+    station_positions = [
+        (station0_row, station0_col),
+        (station1_row, station1_col),
+        (station2_row, station2_col),
+        (station3_row, station3_col)
+    ]
+    distance_to_stations = [abs(taxi_row - station_row) + abs(taxi_col - station_col) for station_row, station_col in station_positions]
+
+    next_distance_to_stations = [abs(next_taxi_row - station_row) + abs(next_taxi_col - station_col) for station_row, station_col in station_positions]
     
     # Get distances to stations for current and next state
     # _, current_distances = preprocess_state(obs)
@@ -156,10 +170,12 @@ def shape_reward(obs, next_obs, action, reward):
 
     elif next_obstacle_north == 0 and next_obstacle_south == 0 and next_obstacle_east == 0 and next_obstacle_west == 0 and not (action == 4 or action == 5):
         shaped_reward += 20.0
-
     
-    if reward <= -10:
-        shaped_reward -= 30.0
+    elif reward <= -10:
+        shaped_reward -= 20.0
+
+    # if distance_to_stations[0] <= 1 or distance_to_stations[1] <= 1 or distance_to_stations[2] <= 1 or distance_to_stations[3] <= 1 and passenger_look == 1:
+    #     shaped_reward += 10.0
 
     
 
