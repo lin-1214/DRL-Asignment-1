@@ -93,7 +93,6 @@ def preprocess_state(obs):
         
         # # Passenger and destination information (binary)
         # passenger_look,
-        # # destination_look
         # distances_to_stations[0],
         # distances_to_stations[1],
         # distances_to_stations[2],
@@ -142,15 +141,6 @@ def shape_reward(obs, next_obs, action, reward):
     next_obstacle_north, next_obstacle_south, next_obstacle_east, next_obstacle_west, \
     next_passenger_look, next_destination_look = next_obs
 
-    station_positions = [
-        (station0_row, station0_col),
-        (station1_row, station1_col),
-        (station2_row, station2_col),
-        (station3_row, station3_col)
-    ]
-    distance_to_stations = [abs(taxi_row - station_row) + abs(taxi_col - station_col) for station_row, station_col in station_positions]
-
-    next_distance_to_stations = [abs(next_taxi_row - station_row) + abs(next_taxi_col - station_col) for station_row, station_col in station_positions]
     
     # Get distances to stations for current and next state
     # _, current_distances = preprocess_state(obs)
@@ -202,7 +192,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     target_net.eval()  # Target network is only used for inference
     
     # Initialize optimizer
-    optimizer = optim.Adam(policy_net.parameters(), lr=0.001)
+    optimizer = optim.Adam(policy_net.parameters(), lr=0.005)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=200, verbose=True)
     criterion = nn.HuberLoss(delta=1.0)
     
@@ -310,8 +300,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
         # Track metrics
         avg_loss = np.mean(episode_losses[-100:]) if episode_losses else 0
         avg_reward = np.mean(steps_rewards[-100:]) if steps_rewards else 0
-        losses.append(avg_loss)
-        episode_rewards.append(total_reward)
+        # losses.append(avg_loss)
+        # episode_rewards.append(total_reward)
         
         # Track best reward
         if total_reward > best_reward:
