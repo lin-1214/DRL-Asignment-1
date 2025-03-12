@@ -197,7 +197,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
     
     # Use a weighted loss function to balance between TD error and shaped rewards
     # This allows you to control how much the shaped rewards influence learning
-    def custom_loss(predicted_q, target_q, states, actions, shaped_rewards, alpha=0.4):
+    def custom_loss(predicted_q, target_q, states, actions, shaped_rewards, alpha=0.3):
         # Standard TD error
         td_error = nn.functional.smooth_l1_loss(predicted_q, target_q, reduction='none')
         
