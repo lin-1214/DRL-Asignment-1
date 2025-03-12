@@ -146,9 +146,9 @@ def shape_reward(obs, next_obs, action, reward):
     
     # Penalty for move into obstacles
     if (obstacle_north == 1 and next_obstacle_north == 1) or (obstacle_south == 1 and next_obstacle_south == 1) or (obstacle_east == 1 and next_obstacle_east == 1) or (obstacle_west == 1 and next_obstacle_west == 1):
-        shaped_reward -= 30.0
-        
-    elif reward == -5:
+        shaped_reward -= 20.0
+
+    elif (action == 0 and obstacle_north == 1) or (action == 1 and obstacle_south == 1) or (action == 2 and obstacle_east == 1) or (action == 3 and obstacle_west == 1):
         shaped_reward -= 20.0
 
     elif (action == 0 and next_obstacle_north == 1) or (action == 1 and next_obstacle_south == 1) or (action == 2 and next_obstacle_east == 1) or (action == 3 and next_obstacle_west == 1):
@@ -221,7 +221,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
                 action = torch.argmax(q_values).item()
             
             # Take action and observe next state
-            next_obs, reward, done, _, _ = env.step(action)
+            next_obs, reward, done, _ = env.step(action)
                 
             next_state_tensor = preprocess_state(next_obs)  # Only use the tensor
             
@@ -309,7 +309,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=2000)
+    train_agent(num_episodes=10000)
 
 # else:
 #     model_path = "q_network.pt"
