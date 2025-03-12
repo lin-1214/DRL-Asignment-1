@@ -145,11 +145,11 @@ def shape_reward(obs, next_obs, action, reward):
     shaped_reward = reward
     
     # Penalty for move into obstacles
-    if (action == 0 and obstacle_south == 1) or \
-       (action == 1 and obstacle_north == 1) or \
-       (action == 2 and obstacle_east == 1) or \
-       (action == 3 and obstacle_west == 1):
+    if reward == -5:
         shaped_reward -= 20.0
+
+    elif (action == 0 and next_obstacle_north == 1) or (action == 1 and next_obstacle_south == 1) or (action == 2 and next_obstacle_east == 1) or (action == 3 and next_obstacle_west == 1):
+        shaped_reward -= 10.0
 
     elif next_obstacle_north == 0 and next_obstacle_south == 0 and next_obstacle_east == 0 and next_obstacle_west == 0 and not (action == 4 or action == 5):
         shaped_reward += 20.0
