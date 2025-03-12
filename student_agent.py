@@ -11,9 +11,6 @@ from tqdm import tqdm
 MODEL_FILE = "q_network.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Hyperparameters
-EPSILON = 0.1  # For exploration during testing
-
 class QNetwork(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(QNetwork, self).__init__()
@@ -117,10 +114,6 @@ def get_action(obs):
             # If model doesn't exist, return random actions
             return random.choice([0, 1, 2, 3, 4, 5])
     
-    # Epsilon-greedy policy for exploration during testing
-    if random.random() < EPSILON:
-        return random.choice([0, 1, 2, 3, 4, 5])
-    
     # Preprocess state and get Q-values
     state_tensor = preprocess_state(obs)
     with torch.no_grad():
@@ -151,15 +144,8 @@ def shape_reward(obs, next_obs, action, reward):
     
     shaped_reward = reward
     
-    # Penalty for trying to move into obstacles
-    if (action == 0 and next_obstacle_south == 1) or \
-       (action == 1 and next_obstacle_north == 1) or \
-       (action == 2 and next_obstacle_east == 1) or \
-       (action == 3 and next_obstacle_west == 1):
-        shaped_reward -= 5.0
-    
     # Penalty for move into obstacles
-    elif (action == 0 and obstacle_south == 1) or \
+    if (action == 0 and obstacle_south == 1) or \
        (action == 1 and obstacle_north == 1) or \
        (action == 2 and obstacle_east == 1) or \
        (action == 3 and obstacle_west == 1):
@@ -320,7 +306,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=10000)
+    train_agent(num_episodes=2000)
 
 # else:
 #     model_path = "q_network.pt"
