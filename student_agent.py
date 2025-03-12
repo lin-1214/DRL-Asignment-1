@@ -157,10 +157,12 @@ def shape_reward(obs, next_obs, action, reward):
     elif next_obstacle_north == 0 and next_obstacle_south == 0 and next_obstacle_east == 0 and next_obstacle_west == 0 and not (action == 4 or action == 5):
         shaped_reward += 20.0
 
-    elif action == 4 or action == 5:
-        shaped_reward -= 5.0
     
+    if reward <= -10:
+        shaped_reward -= 30.0
+
     
+
     return shaped_reward
 
 def soft_update(target_net, policy_net, tau=0.001):
