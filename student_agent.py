@@ -290,8 +290,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=64):
             soft_update(target_net, policy_net)
         
         # Track metrics
-        avg_loss = np.mean(episode_losses) if episode_losses else 0
-        avg_reward = np.mean(steps_rewards) if steps_rewards else 0
+        avg_loss = np.mean(episode_losses[-100:]) if episode_losses else 0
+        avg_reward = np.mean(steps_rewards[-100:]) if steps_rewards else 0
         losses.append(avg_loss)
         episode_rewards.append(total_reward)
         
