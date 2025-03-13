@@ -56,7 +56,7 @@ class ReplayBuffer:
     def __len__(self):
         return len(self.buffer)
 
-def preprocess_state(obs):
+def preprocess_state(obs, info):
     """
     Convert observation to a tensor for the neural network.
     This function uses relative positions and distances between key elements.
@@ -80,6 +80,7 @@ def preprocess_state(obs):
         # # Passenger and destination information (binary)
         passenger_look,
         destination_look,
+        info.passenger,
         # distances_to_stations[0],
         # distances_to_stations[1],
         # distances_to_stations[2],
@@ -93,25 +94,59 @@ def get_action(obs):
     Takes an observation as input and returns an action (0-5).
     Uses the trained Q-network to select the best action.
     """
+    # Initialize state tracking if not already done
+    if not hasattr(get_action, "passenger"):
+        get_action.passenger = False
+        get_action.last_action = None
+        get_action.last_obs = None
+    
     # Load model if it exists and hasn't been loaded yet
     if not hasattr(get_action, "model"):
         if os.path.exists(MODEL_FILE):
-            get_action.model = QNetwork(8, 6).to(DEVICE)
+            get_action.model = QNetwork(9, 6).to(DEVICE)
             get_action.model.load_state_dict(torch.load(MODEL_FILE, map_location=DEVICE))
             get_action.model.eval()
         else:
             # If model doesn't exist, return random actions
             return random.choice([0, 1, 2, 3, 4, 5])
     
+    # Extract passenger and destination information from observation
+    taxi_row, taxi_col, station0_row, station0_col, station1_row, station1_col, \
+    station2_row, station2_col, station3_row, station3_col, \
+    obstacle_north, obstacle_south, obstacle_east, obstacle_west, \
+    passenger_look, destination_look = obs
+    
+    # Update passenger state based on previous action
+    if get_action.last_action is not None and get_action.last_obs is not None:
+        last_taxi_row, last_taxi_col, _, _, _, _, _, _, _, _, _, _, _, _, last_passenger_look, _ = get_action.last_obs
+        
+        # If we previously executed pickup at a location with passenger
+        if get_action.last_action == 4 and last_passenger_look == 1:
+            get_action.passenger = True
+        # If we previously executed dropoff
+        elif get_action.last_action == 5:
+            get_action.passenger = False
+    
+    # Create a simple info object to pass to preprocess_state
+    class SimpleInfo:
+        def __init__(self, passenger):
+            self.passenger = passenger
+    
+    info = SimpleInfo(get_action.passenger)
+    
     # Preprocess state and get Q-values
-    state_tensor = preprocess_state(obs)
+    state_tensor = preprocess_state(obs, info)
     with torch.no_grad():
         q_values = get_action.model(state_tensor)
     
-    # Return action with highest Q-value
-    return torch.argmax(q_values).item()
-
-    # return random.choice([0, 1, 2, 3, 4, 5])
+    # Get the best action
+    action = torch.argmax(q_values).item()
+    
+    # Store current observation and action for next call
+    get_action.last_obs = obs
+    get_action.last_action = action
+    
+    return action
 
 def shape_reward(info, obs, next_obs, action, reward):
     """
@@ -217,7 +252,7 @@ class DQN(nn.Module):
             return random.choice([0, 1, 2, 3, 4, 5])
         
         # Use your existing preprocess_state function
-        state_tensor = preprocess_state(obs)
+        state_tensor = preprocess_state(obs, self)
         
         with torch.no_grad():
             q_values = self.policy_net(state_tensor)
@@ -298,7 +333,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
     env = SimpleTaxiEnv()
     
     # Initialize DQN agent
-    agent = DQN(state_size=8, action_size=6, gamma=gamma, batch_size=batch_size)
+    agent = DQN(state_size=9, action_size=6, gamma=gamma, batch_size=batch_size)
     
     # Training parameters
     epsilon = 1.0
@@ -327,8 +362,8 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
             shaped_reward = agent.reward_shaping(obs, next_obs, action, reward)
             
             # Store transition in replay buffer
-            state_tensor = preprocess_state(obs)
-            next_state_tensor = preprocess_state(next_obs)
+            state_tensor = preprocess_state(obs, agent)
+            next_state_tensor = preprocess_state(next_obs, agent)
             
             agent.memory.push(
                 state_tensor.cpu().numpy(),
