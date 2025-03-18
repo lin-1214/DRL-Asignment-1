@@ -136,6 +136,9 @@ def shape_reward(info, obs, next_obs, action, reward):
     if (action == 0 and obstacle_north == 1) or (action == 1 and obstacle_south == 1) or (action == 2 and obstacle_east == 1) or (action == 3 and obstacle_west == 1):
         shaped_reward -= 20.0
 
+    if (next_obstacle_east == 1 and next_obstacle_north == 1 and next_obstacle_south == 1 and next_obstacle_west == 1):
+        shaped_reward -= 50.0
+
     # pick up passenger
     if action == 4 and (taxi_row, taxi_col) in info.stations and passenger_look == 1:
         shaped_reward += 30.0
@@ -365,7 +368,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=15000)
+    train_agent(num_episodes=30000)
 
 # else:
 #     model_path = "q_network.pt"
