@@ -55,34 +55,44 @@ except Exception as e:
     # Fallback to random actions if model can't be loaded
     model = None
 
-# def get_action(obs):
-#     """
-#     Takes an observation as input and returns an action (0-5).
-#     Uses the trained Q-network to select the best action.
-#     """
-#     if model is None:
-#         return random.choice([0, 1, 2, 3, 4, 5])
-    
-#     state_tensor = preprocess_state(obs)
-
-    # if state_tensor not in q_table:
-    #     return random.choice([0, 1, 2, 3, 4, 5])
-    
-    # with torch.no_grad():
-    #     q_values = q_table[state_tensor]
-    
-#     return torch.argmax(q_values).item()
-
-# implement q_table version
 def get_action(obs):
-    q_table = pickle.load(open("q_table.pkl", "rb"))
-    state_key = tuple(preprocess_state(obs).cpu().numpy())
-
-
-    if state_key not in q_table:
+    """
+    Takes an observation as input and returns an action (0-5).
+    Uses the trained Q-network to select the best action.
+    """
+    if model is None:
         return random.choice([0, 1, 2, 3, 4, 5])
     
-    q_values = q_table[state_key]
+    try:
+        state_tensor = preprocess_state(obs)
+        
+        # Check if state_tensor is None or contains NaN values
+        if state_tensor is None or torch.isnan(state_tensor).any():
+            print("Warning: Invalid state tensor detected")
+            return random.choice([0, 1, 2, 3, 4, 5])
+        
+        with torch.no_grad():
+            q_values = model(state_tensor)
+            
+            # Check if q_values contains NaN or very large values
+            if torch.isnan(q_values).any() or torch.isinf(q_values).any():
+                print("Warning: Invalid Q-values detected")
+                return random.choice([0, 1, 2, 3, 4, 5])
+        
+        return torch.argmax(q_values).item()
+    except Exception as e:
+        print(f"Error in get_action: {e}")
+        return random.choice([0, 1, 2, 3, 4, 5])
 
-    return np.argmax(q_values)
+# implement q_table version
+# def get_action(obs):
+#     q_table = pickle.load(open("q_table.pkl", "rb"))
+#     state_key = tuple(preprocess_state(obs).cpu().numpy())
+
+#     if state_key not in q_table:
+#         return random.choice([0, 1, 2, 3, 4, 5])
+    
+#     q_values = q_table[state_key]
+
+#     return np.argmax(q_values)
 
