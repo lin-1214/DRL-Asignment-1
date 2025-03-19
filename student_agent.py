@@ -111,7 +111,7 @@ try:
         model_path = f"{model_path_prefix}_{i}.pt"
         if os.path.exists(model_path):
             model = QNetwork(6, 6).to(DEVICE)
-            model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+            model.load_state_dict(torch.load(f"{model_path_prefix}_q_table_{i}.pt", map_location=DEVICE))
             model.eval()
             models.append(model)
     
@@ -173,6 +173,7 @@ def get_action(obs):
             
             # Return the most common action (voting)
             if actions:
+                # print(Counter(actions).most_common(1)[0][0])
                 return Counter(actions).most_common(1)[0][0]
         
         # Fallback to random action if everything else fails
