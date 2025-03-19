@@ -111,7 +111,7 @@ try:
         model_path = f"{model_path_prefix}_{i}.pt"
         if os.path.exists(model_path):
             model = QNetwork(6, 6).to(DEVICE)
-            model.load_state_dict(torch.load(f"{model_path_prefix}_q_table_{i}.pkl", map_location=DEVICE))
+            model.load_state_dict(torch.load(model_path, map_location=DEVICE))
             model.eval()
             models.append(model)
     
@@ -126,22 +126,13 @@ except Exception as e:
     print(f"Error loading models: {e}")
     models = []
 
-# Try to load Q-table as fallback
-q_table = None
-try:
-    with open("q_table.pkl", "rb") as f:
-        q_table = pickle.load(f)
-    print(f"Loaded Q-table with {len(q_table)} entries")
-except Exception as e:
-    print(f"Error loading Q-table: {e}")
-
 def get_action(obs):
     """
     Takes an observation as input and returns an action (0-5).
     Uses ensemble voting from multiple models to select the best action.
     Falls back to Q-table or random actions if models aren't available.
     """
-    if not models and q_table is None:
+    if models is None:
         return random.choice([0, 1, 2, 3, 4, 5])
     
     try:
@@ -151,12 +142,6 @@ def get_action(obs):
         if state_tensor is None or torch.isnan(state_tensor).any():
             print("Warning: Invalid state tensor detected")
             return random.choice([0, 1, 2, 3, 4, 5])
-        
-        # Check if state is in Q-table and use that with some probability
-        if q_table is not None:
-            state_key = tuple(state_tensor.cpu().numpy())
-            if state_key in q_table:
-                return np.argmax(q_table[state_key])
         
         # If we have models, use ensemble voting
         if models:
@@ -176,7 +161,8 @@ def get_action(obs):
                 # print(actions)
                 # print(Counter(actions).most_common(1)[0][0])
                 return Counter(actions).most_common(1)[0][0]
-        
+                # return actions
+
         # Fallback to random action if everything else fails
         return random.choice([0, 1, 2, 3, 4, 5])
     
