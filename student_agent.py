@@ -96,3 +96,88 @@ def get_action(obs):
 
 #     return np.argmax(q_values)
 
+# Ensemble version
+
+# Load ensemble models
+NUM_MODELS = 5  # Match the number used in training
+models = []
+model_path_prefix = "q_network"
+
+# Try to load ensemble models
+try:
+    for i in range(NUM_MODELS):
+        model_path = f"{model_path_prefix}_{i}.pt"
+        if os.path.exists(model_path):
+            model = QNetwork(6, 6).to(DEVICE)
+            model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+            model.eval()
+            models.append(model)
+    
+    if not models:  # If no ensemble models found, try loading single model
+        model = QNetwork(6, 6).to(DEVICE)
+        model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
+        model.eval()
+        models.append(model)
+    
+    print(f"Successfully loaded {len(models)} model(s)")
+except Exception as e:
+    print(f"Error loading models: {e}")
+    models = []
+
+# Try to load Q-table as fallback
+q_table = None
+try:
+    with open("q_table.pkl", "rb") as f:
+        q_table = pickle.load(f)
+    print(f"Loaded Q-table with {len(q_table)} entries")
+except Exception as e:
+    print(f"Error loading Q-table: {e}")
+
+def get_action(obs):
+    """
+    Takes an observation as input and returns an action (0-5).
+    Uses ensemble voting from multiple models to select the best action.
+    Falls back to Q-table or random actions if models aren't available.
+    """
+    if not models and q_table is None:
+        return random.choice([0, 1, 2, 3, 4, 5])
+    
+    try:
+        state_tensor = preprocess_state(obs)
+        
+        # Check if state_tensor is None or contains NaN values
+        if state_tensor is None or torch.isnan(state_tensor).any():
+            print("Warning: Invalid state tensor detected")
+            return random.choice([0, 1, 2, 3, 4, 5])
+        
+        # Check if state is in Q-table and use that with some probability
+        if q_table is not None:
+            state_key = tuple(state_tensor.cpu().numpy())
+            if state_key in q_table:
+                return np.argmax(q_table[state_key])
+        
+        # If we have models, use ensemble voting
+        if models:
+            actions = []
+            with torch.no_grad():
+                for model in models:
+                    q_values = model(state_tensor)
+                    
+                    # Check if q_values contains NaN or very large values
+                    if torch.isnan(q_values).any() or torch.isinf(q_values).any():
+                        continue
+                    
+                    actions.append(torch.argmax(q_values).item())
+            
+            # Return the most common action (voting)
+            if actions:
+                return Counter(actions).most_common(1)[0][0]
+        
+        # Fallback to random action if everything else fails
+        return random.choice([0, 1, 2, 3, 4, 5])
+    
+    except Exception as e:
+        print(f"Error in get_action: {e}")
+        return random.choice([0, 1, 2, 3, 4, 5])
+
+# ... existing code ...
