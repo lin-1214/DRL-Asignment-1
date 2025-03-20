@@ -36,9 +36,6 @@ def preprocess_state(obs):
     
     # Create feature vector with meaningful information
     features = [
-        # Taxi position and obstacle information
-        taxi_row,
-        taxi_col,
         obstacle_north,
         obstacle_south, 
         obstacle_east,
@@ -48,7 +45,7 @@ def preprocess_state(obs):
     return torch.FloatTensor(features).to(DEVICE)
 
 # # Load the model
-model = QNetwork(6, 6).to(DEVICE)
+model = QNetwork(4, 6).to(DEVICE)
 try:
     model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
     model.eval()
@@ -57,34 +54,34 @@ except Exception as e:
     # Fallback to random actions if model can't be loaded
     model = None
 
-# def get_action(obs):
-#     """
-#     Takes an observation as input and returns an action (0-5).
-#     Uses the trained Q-network to select the best action.
-#     """
-#     if model is None:
-#         return random.choice([0, 1, 2, 3, 4, 5])
+def get_action(obs):
+    """
+    Takes an observation as input and returns an action (0-5).
+    Uses the trained Q-network to select the best action.
+    """
+    if model is None:
+        return random.choice([0, 1, 2, 3, 4, 5])
     
-#     try:
-#         state_tensor = preprocess_state(obs)
+    try:
+        state_tensor = preprocess_state(obs)
         
-#         # Check if state_tensor is None or contains NaN values
-#         if state_tensor is None or torch.isnan(state_tensor).any():
-#             print("Warning: Invalid state tensor detected")
-#             return random.choice([0, 1, 2, 3, 4, 5])
+        # Check if state_tensor is None or contains NaN values
+        if state_tensor is None or torch.isnan(state_tensor).any():
+            print("Warning: Invalid state tensor detected")
+            return random.choice([0, 1, 2, 3, 4, 5])
         
-#         with torch.no_grad():
-#             q_values = model(state_tensor)
+        with torch.no_grad():
+            q_values = model(state_tensor)
             
-#             # Check if q_values contains NaN or very large values
-#             if torch.isnan(q_values).any() or torch.isinf(q_values).any():
-#                 print("Warning: Invalid Q-values detected")
-#                 return random.choice([0, 1, 2, 3, 4, 5])
+            # Check if q_values contains NaN or very large values
+            if torch.isnan(q_values).any() or torch.isinf(q_values).any():
+                print("Warning: Invalid Q-values detected")
+                return random.choice([0, 1, 2, 3, 4, 5])
         
-#         return torch.argmax(q_values).item()
-#     except Exception as e:
-#         print(f"Error in get_action: {e}")
-#         return random.choice([0, 1, 2, 3, 4, 5])
+        return torch.argmax(q_values).item()
+    except Exception as e:
+        print(f"Error in get_action: {e}")
+        return random.choice([0, 1, 2, 3, 4, 5])
 
 # implement q_table version
 # def get_action(obs):
@@ -101,71 +98,71 @@ except Exception as e:
 # Ensemble version
 
 # Load ensemble models
-NUM_MODELS = 5  # Match the number used in training
-models = []
-model_path_prefix = "q_network"
+# NUM_MODELS = 5  # Match the number used in training
+# models = []
+# model_path_prefix = "q_network"
 
-# Try to load ensemble models
-try:
-    for i in range(NUM_MODELS):
-        model_path = f"{model_path_prefix}_{i}.pt"
-        if os.path.exists(model_path):
-            model = QNetwork(6, 6).to(DEVICE)
-            model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-            model.eval()
-            models.append(model)
+# # Try to load ensemble models
+# try:
+#     for i in range(NUM_MODELS):
+#         model_path = f"{model_path_prefix}_{i}.pt"
+#         if os.path.exists(model_path):
+#             model = QNetwork(6, 6).to(DEVICE)
+#             model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+#             model.eval()
+#             models.append(model)
     
-    if not models:  # If no ensemble models found, try loading single model
-        model = QNetwork(6, 6).to(DEVICE)
-        model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
-        model.eval()
-        models.append(model)
+#     if not models:  # If no ensemble models found, try loading single model
+#         model = QNetwork(6, 6).to(DEVICE)
+#         model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
+#         model.eval()
+#         models.append(model)
     
-    print(f"Successfully loaded {len(models)} model(s)")
-except Exception as e:
-    print(f"Error loading models: {e}")
-    models = []
+#     print(f"Successfully loaded {len(models)} model(s)")
+# except Exception as e:
+#     print(f"Error loading models: {e}")
+#     models = []
 
-def get_action(obs):
-    """
-    Takes an observation as input and returns an action (0-5).
-    Uses ensemble voting from multiple models to select the best action.
-    Falls back to Q-table or random actions if models aren't available.
-    """
-    if models is None:
-        return random.choice([0, 1, 2, 3, 4, 5])
+# def get_action(obs):
+#     """
+#     Takes an observation as input and returns an action (0-5).
+#     Uses ensemble voting from multiple models to select the best action.
+#     Falls back to Q-table or random actions if models aren't available.
+#     """
+#     if models is None:
+#         return random.choice([0, 1, 2, 3, 4, 5])
     
-    try:
-        state_tensor = preprocess_state(obs)
+#     try:
+#         state_tensor = preprocess_state(obs)
         
-        # Check if state_tensor is None or contains NaN values
-        if state_tensor is None or torch.isnan(state_tensor).any():
-            print("Warning: Invalid state tensor detected")
-            return random.choice([0, 1, 2, 3, 4, 5])
+#         # Check if state_tensor is None or contains NaN values
+#         if state_tensor is None or torch.isnan(state_tensor).any():
+#             print("Warning: Invalid state tensor detected")
+#             return random.choice([0, 1, 2, 3, 4, 5])
         
-        # If we have models, use ensemble voting
-        if models:
-            actions = []
-            with torch.no_grad():
-                for model in models:
-                    q_values = model(state_tensor)
+#         # If we have models, use ensemble voting
+#         if models:
+#             actions = []
+#             with torch.no_grad():
+#                 for model in models:
+#                     q_values = model(state_tensor)
                     
-                    # Check if q_values contains NaN or very large values
-                    if torch.isnan(q_values).any() or torch.isinf(q_values).any():
-                        continue
+#                     # Check if q_values contains NaN or very large values
+#                     if torch.isnan(q_values).any() or torch.isinf(q_values).any():
+#                         continue
                     
-                    actions.append(torch.argmax(q_values).item())
+#                     actions.append(torch.argmax(q_values).item())
             
-            # Return the most common action (voting)
-            if actions:
-                # print(actions)
-                # print(Counter(actions).most_common(1)[0][0])
-                return Counter(actions).most_common(1)[0][0]
-                # return actions
+#             # Return the most common action (voting)
+#             if actions:
+#                 # print(actions)
+#                 # print(Counter(actions).most_common(1)[0][0])
+#                 return Counter(actions).most_common(1)[0][0]
+#                 # return actions
 
-        # Fallback to random action if everything else fails
-        return random.choice([0, 1, 2, 3, 4, 5])
+#         # Fallback to random action if everything else fails
+#         return random.choice([0, 1, 2, 3, 4, 5])
     
-    except Exception as e:
-        print(f"Error in get_action: {e}")
-        return random.choice([0, 1, 2, 3, 4, 5])
+#     except Exception as e:
+#         print(f"Error in get_action: {e}")
+#         return random.choice([0, 1, 2, 3, 4, 5])
