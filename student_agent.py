@@ -98,7 +98,7 @@ def preprocess_state(obs):
 # Ensemble version
 
 # Load ensemble models
-NUM_MODELS = 5  # Match the number used in training
+NUM_MODELS = 11  # Match the number used in training
 models = []
 model_path_prefix = "q_network"
 
