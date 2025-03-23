@@ -42,13 +42,19 @@ def get_action(obs):
         station_east = (taxi_row, taxi_col + 1) in stations
         station_west = (taxi_row, taxi_col - 1) in stations
         
-        # Return state representation as a tuple with reordered elements
-        return (obstacle_north, obstacle_south, obstacle_east, obstacle_west, passenger_look, destination_look, passenger_picked_up, station_north, station_south, station_east, station_west, station_middle, previous_action)
+        # Return state representation as a tuple with reordered elements to match training
+        return (
+            passenger_picked_up,
+            passenger_look, destination_look,
+            station_north, station_south, station_east, station_west, station_middle,
+            obstacle_north, obstacle_south, obstacle_east, obstacle_west,
+            previous_action
+        )
 
     def softmax(x):
         """Compute softmax values for array x."""
         exp_x = np.exp(x - np.max(x))
-        return exp_x / np.sum(exp_x)
+        return exp_x / exp_x.sum()
     
     # Get current state using the same function as in training
     state = extract_state_features(obs, passenger_picked_up, previous_action)
@@ -65,10 +71,10 @@ def get_action(obs):
         action = np.random.choice(range(6), p=probs)  # Use softmax probabilities
     
     # Update passenger status based on action
-    at_station = state[11]  # station_middle
-    if action == PICKUP and state[4] == 1 and at_station:  # Pickup action at passenger location and at station
+    at_station = state[7]  # station_middle
+    if action == PICKUP and state[1] == 1 and at_station:  # Pickup action at passenger location and at station
         passenger_picked_up = True
-    elif action == DROPOFF and state[5] == 1 and at_station and passenger_picked_up:  # Dropoff action at destination, at station, with passenger
+    elif action == DROPOFF and state[2] == 1 and at_station and passenger_picked_up:  # Dropoff action at destination, at station, with passenger
         passenger_picked_up = False
     
     previous_action = action

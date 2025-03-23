@@ -28,7 +28,7 @@ class SimpleTaxiEnv:
         self.stations = None
         self.passenger_loc = None
         self.destination = None
-        self.pre_action = None
+        self.previous_action = None
 
     def reset(self):
         """Reset the environment to a new random state."""
@@ -59,7 +59,7 @@ class SimpleTaxiEnv:
         # Select passenger location and destination from stations
         self.passenger_loc, self.destination = random.sample(self.stations, 2)
 
-        self.pre_action = None
+        self.previous_action = None
         
         return self.get_state(), {}
 
