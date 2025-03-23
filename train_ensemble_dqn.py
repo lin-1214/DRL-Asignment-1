@@ -72,8 +72,8 @@ def preprocess_state(obs):
     # Create feature vector with more meaningful relative information
     features = [
         # Obstacle information (binary)
-        # taxi_row,
-        # taxi_col,
+        taxi_row,
+        taxi_col,
         obstacle_north,
         obstacle_south, 
         obstacle_east,
@@ -124,7 +124,7 @@ def shape_reward(info, obs, next_obs, action, reward):
         shaped_reward -= 20.0
 
     if (next_obstacle_east == 1 and next_obstacle_north == 1 and next_obstacle_south == 1 and next_obstacle_west == 1):
-        shaped_reward -= 50.0
+        shaped_reward -= 20.0
 
     if action == 4 or action == 5:
         shaped_reward -= 20
@@ -319,13 +319,13 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
             print(f"Error loading Q-table: {e}")
     
     # Initialize agent (single DQN)
-    agent = DQN(state_size=4, action_size=6, gamma=gamma, batch_size=batch_size)
+    agent = DQN(state_size=6, action_size=6, gamma=gamma, batch_size=batch_size)
     
     # Training parameters
     epsilon = 1.0
     epsilon_min = 0.01
     epsilon_decay = 0.9999
-    avg_reward = []
+    rewards = np.array([])
     
     # Training loop
     best_reward = -float('inf')
@@ -368,8 +368,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
         
         # Decay epsilon
         epsilon = max(epsilon_min, epsilon * epsilon_decay)
-        avg_reward.append(total_reward)
-        
+        rewards = np.append(rewards, total_reward)
         # Track best reward and save model
         if total_reward > best_reward:
             best_reward = total_reward
@@ -377,7 +376,15 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
         
         # Print progress
         if (episode + 1) % 100 == 0:
-            print(f"Episode {episode + 1}/{num_episodes}, Reward: {np.mean(avg_reward[-100:]):.2f}, Best: {best_reward:.2f}, Epsilon: {epsilon:.4f}")
+            avg_reward = np.mean(rewards[-100:])
+            print("Environment Information:")
+            print(f"Fuel Limit: {env.fuel_limit}")
+            print(f"Grid Size: {env.grid_size}")
+            print(f"Stations: {env.stations}")
+            print(f"Obstacle counts: {len(env.obstacles)}")
+            print(f"State: {state_tensor}")
+
+            print(f"Episode {episode + 1}/{num_episodes}, Average Reward: {avg_reward:.2f}, Epsilon: {epsilon:.3f}")
     
     print("Training completed and model saved.")
     
@@ -394,7 +401,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=50000)
+    train_agent(num_episodes=20000)
 
 # else:
 #     model_path = "q_network.pt"
