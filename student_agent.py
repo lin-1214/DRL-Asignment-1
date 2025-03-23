@@ -4,7 +4,7 @@ import random
 import pickle
 
 # Define these as global variables
-has_passenger = False
+passenger_picked_up = False
 pre_action = None
 q_table = {}
 
@@ -13,9 +13,9 @@ with open("q_table.pkl", "rb") as f:
 
 def get_action(obs):
     # Add global declarations to access and modify the module-level variables
-    global has_passenger, pre_action
+    global passenger_picked_up, pre_action
     
-    def extract_state_features(obs, has_passenger, previous_action):
+    def extract_state_features(obs, passenger_picked_up, previous_action):
         """Extract relevant state features from the environment observation."""
         # Unpack observation
         (taxi_row, taxi_col, 
@@ -44,7 +44,7 @@ def get_action(obs):
         
         # Return state representation as a tuple with reordered elements
         return (
-            has_passenger,
+            passenger_picked_up,
             passenger_look, destination_look,
             station_north, station_south, station_east, station_west, station_middle,
             obstacle_north, obstacle_south, obstacle_east, obstacle_west,
@@ -57,7 +57,7 @@ def get_action(obs):
         return exp_x / np.sum(exp_x)
     
     # Get current state using the same function as in training
-    state = extract_state_features(obs, has_passenger, pre_action)
+    state = extract_state_features(obs, passenger_picked_up, pre_action)
     
     # Action constants for better readability
     PICKUP = 4
@@ -73,9 +73,9 @@ def get_action(obs):
     # Update passenger status based on action
     at_station = state[7]  # station_middle
     if action == PICKUP and state[1] == 1 and at_station:  # Pickup action at passenger location and at station
-        has_passenger = True
-    elif action == DROPOFF and state[2] == 1 and at_station and has_passenger:  # Dropoff action at destination, at station, with passenger
-        has_passenger = False
+        passenger_picked_up = True
+    elif action == DROPOFF and state[2] == 1 and at_station and passenger_picked_up:  # Dropoff action at destination, at station, with passenger
+        passenger_picked_up = False
     
     pre_action = action
     
