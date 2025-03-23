@@ -65,7 +65,7 @@ def get_action(obs):
     
     # Choose action based on Q-table
     if state not in q_table:
-        action = np.random.randint(6)  # Random action if state not in Q-table
+        action = np.random.randint(4)  # Random action if state not in Q-table
     else:
         probs = softmax(q_table[state])
         action = np.random.choice(range(6), p=probs)  # Use softmax probabilities
