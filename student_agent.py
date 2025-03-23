@@ -43,7 +43,7 @@ model = DQN(state_size=8, action_size=6, gamma=0.99, batch_size=128)
 
 model.load("q_network_ensemble_2.pt")
 
-def get_action(obs, epsilon=0.05):  # Add a small exploration probability
+def get_action(obs, epsilon=0):  # Add a small exploration probability
     """
     Takes an observation as input and returns an action (0-5).
     Uses the trained Q-network to select the best action with some robustness for unseen states.
@@ -56,8 +56,11 @@ def get_action(obs, epsilon=0.05):  # Add a small exploration probability
         return random.choice([0, 1, 2, 3, 4, 5])
     
     state_tensor = preprocess_state(obs)
-    
-    return torch.argmax(model.policy_net(state_tensor)).item()
+    try:
+        return torch.argmax(model.policy_net(state_tensor)).item()
+    except Exception as e:
+        print(f"Error in get_action: {e}")
+        return random.choice([0, 1, 2, 3, 4, 5])
 
 # # implement q_table version
 # def get_action(obs):
