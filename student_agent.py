@@ -4,7 +4,7 @@ import random
 import pickle
 
 # Define these as global variables
-passenger_picked_up = False
+has_passenger = False
 pre_action = None
 q_table = {}
 
@@ -13,7 +13,7 @@ with open("q_table.pkl", "rb") as f:
 
 def get_action(obs):
     # Add global declarations to access and modify the module-level variables
-    global passenger_picked_up, pre_action
+    global has_passenger, pre_action
     
     def extract_state_features(obs, has_passenger, previous_action):
         """Extract relevant state features from the environment observation."""
@@ -57,7 +57,7 @@ def get_action(obs):
         return exp_x / np.sum(exp_x)
     
     # Get current state using the same function as in training
-    state = extract_state_features(obs, passenger_picked_up, pre_action)
+    state = extract_state_features(obs, has_passenger, pre_action)
     
     # Action constants for better readability
     PICKUP = 4
@@ -73,9 +73,9 @@ def get_action(obs):
     # Update passenger status based on action
     at_station = state[7]  # station_middle
     if action == PICKUP and state[1] == 1 and at_station:  # Pickup action at passenger location and at station
-        passenger_picked_up = True
-    elif action == DROPOFF and state[2] == 1 and at_station and passenger_picked_up:  # Dropoff action at destination, at station, with passenger
-        passenger_picked_up = False
+        has_passenger = True
+    elif action == DROPOFF and state[2] == 1 and at_station and has_passenger:  # Dropoff action at destination, at station, with passenger
+        has_passenger = False
     
     pre_action = action
     
