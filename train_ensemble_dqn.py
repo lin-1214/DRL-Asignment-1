@@ -16,10 +16,12 @@ class QNetwork(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(QNetwork, self).__init__()
         self.network = nn.Sequential(
-            nn.Linear(input_dim, 128),
-            nn.GELU(),
+            nn.Linear(input_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
             nn.Linear(128, 64),
-            nn.GELU(),
+            nn.ReLU(),
             nn.Linear(64, output_dim)
         )
 
@@ -80,8 +82,8 @@ def preprocess_state(obs):
         obstacle_west,
         
         # # Passenger and destination information (binary)
-        # passenger_look,
-        # destination_look,
+        passenger_look,
+        destination_look,
         # distances_to_stations[0],
         # distances_to_stations[1],
         # distances_to_stations[2],
@@ -123,31 +125,27 @@ def shape_reward(info, obs, next_obs, action, reward):
     if (action == 0 and obstacle_south == 1) or (action == 1 and obstacle_north == 1)  or (action == 2 and obstacle_east == 1) or (action == 3 and obstacle_west == 1):
         shaped_reward -= 20.0
 
-    if (next_obstacle_east == 1 and next_obstacle_north == 1 and next_obstacle_south == 1 and next_obstacle_west == 1):
-        shaped_reward -= 20.0
 
-    if action == 4 or action == 5:
-        shaped_reward -= 20
     # pick up passenger
-    # if action == 4 and (taxi_row, taxi_col) in info.stations and passenger_look == 1:
-    #     shaped_reward += 30.0
-    #     info.passenger = True
-    # elif action == 4:
-    #     shaped_reward -= 10
+    if action == 4 and (taxi_row, taxi_col) in info.stations and passenger_look == 1:
+        shaped_reward += 10.0
+        info.passenger = True
+    elif action == 4:
+        shaped_reward -= 20
 
     # find destination
-    # if (taxi_row, taxi_col) in info.stations and destination_look == 1 and info.destination == []:
-    #     info.destination = (taxi_row, taxi_col)
-    #     shaped_reward += 30
+    if (taxi_row, taxi_col) in info.stations and destination_look == 1 and info.destination == []:
+        info.destination = (taxi_row, taxi_col)
+        shaped_reward += 10
 
     # drop off passenger
-    # if action == 5 and (taxi_row, taxi_col) in info.stations and destination_look == 1 and info.passenger == True:
-    #     shaped_reward += 100
-    # elif action == 5:
-    #     shaped_reward -= 10
+    if action == 5 and (taxi_row, taxi_col) in info.stations and destination_look == 1 and info.passenger == True:
+        shaped_reward += 100
+    elif action == 5:
+        shaped_reward -= 20
 
-    # if taxi_row == next_taxi_row and taxi_col == next_taxi_col:
-    #     shaped_reward -= 50 # penalize staying in the same place keep bumping into the wall
+    if taxi_row == next_taxi_row and taxi_col == next_taxi_col:
+        shaped_reward -= 50 
 
     # if distance_to_stations[0] <= 1 or distance_to_stations[1] <= 1 or distance_to_stations[2] <= 1 or distance_to_stations[3] <= 1 and passenger_look == 1:
     #     shaped_reward += 10.0
@@ -184,7 +182,6 @@ class DQN(nn.Module):
         
         # State tracking
         self.stations = [[0, 0], [0, 0], [0, 0], [0, 0]]
-        self.obstacles = []
         self.passenger = False
         self.destination = []
     
@@ -289,14 +286,14 @@ class DQN(nn.Module):
 
         self.stations = [[station0_row, station0_col], [station1_row, station1_col], [station2_row, station2_col], [station3_row, station3_col]]
 
-        if obstacle_north == 1 and [taxi_row - 1, taxi_col] not in self.obstacles:
-            self.obstacles.append([taxi_row - 1, taxi_col])
-        if obstacle_south == 1 and [taxi_row + 1, taxi_col] not in self.obstacles:
-            self.obstacles.append([taxi_row + 1, taxi_col])
-        if obstacle_east == 1 and [taxi_row, taxi_col + 1] not in self.obstacles:
-            self.obstacles.append([taxi_row, taxi_col + 1])
-        if obstacle_west == 1 and [taxi_row, taxi_col - 1] not in self.obstacles:
-            self.obstacles.append([taxi_row, taxi_col - 1])
+        # if obstacle_north == 1 and [taxi_row - 1, taxi_col] not in self.obstacles:
+        #     self.obstacles.append([taxi_row - 1, taxi_col])
+        # if obstacle_south == 1 and [taxi_row + 1, taxi_col] not in self.obstacles:
+        #     self.obstacles.append([taxi_row + 1, taxi_col])
+        # if obstacle_east == 1 and [taxi_row, taxi_col + 1] not in self.obstacles:
+        #     self.obstacles.append([taxi_row, taxi_col + 1])
+        # if obstacle_west == 1 and [taxi_row, taxi_col - 1] not in self.obstacles:
+        #     self.obstacles.append([taxi_row, taxi_col - 1])
 
 def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
     """
@@ -319,7 +316,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
             print(f"Error loading Q-table: {e}")
     
     # Initialize agent (single DQN)
-    agent = DQN(state_size=6, action_size=6, gamma=gamma, batch_size=batch_size)
+    agent = DQN(state_size=8, action_size=6, gamma=gamma, batch_size=batch_size)
     
     # Training parameters
     epsilon = 1.0
@@ -380,7 +377,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
             print("Environment Information:")
             print(f"Fuel Limit: {env.fuel_limit}")
             print(f"Grid Size: {env.grid_size}")
-            print(f"Stations: {env.stations}")
+            print(f"Stations: {agent.stations}")
             print(f"Obstacle counts: {len(env.obstacles)}")
             print(f"State: {state_tensor}")
 
@@ -401,7 +398,7 @@ def train_agent(num_episodes=10000, gamma=0.99, batch_size=128):
 
 if __name__ == "__main__":
     # This will only run when you execute this file directly
-    train_agent(num_episodes=20000)
+    train_agent(num_episodes=40000)
 
 # else:
 #     model_path = "q_network.pt"
