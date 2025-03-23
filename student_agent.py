@@ -57,7 +57,7 @@ def get_action(obs, epsilon=0):  # Add a small exploration probability
     
     state_tensor = preprocess_state(obs)
     try:
-        return torch.argmax(model.policy_net(state_tensor)).item()
+        return torch.argmax(model.target_net(state_tensor)).item()
     except Exception as e:
         print(f"Error in get_action: {e}")
         return random.choice([0, 1, 2, 3, 4, 5])
