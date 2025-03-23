@@ -5,7 +5,7 @@ import pickle
 
 # Define these as global variables
 passenger_picked_up = False
-pre_action = None
+previous_action = None
 q_table = {}
 
 with open("q_table.pkl", "rb") as f:
@@ -13,7 +13,7 @@ with open("q_table.pkl", "rb") as f:
 
 def get_action(obs):
     # Add global declarations to access and modify the module-level variables
-    global passenger_picked_up, pre_action
+    global passenger_picked_up, previous_action
     
     def extract_state_features(obs, passenger_picked_up, previous_action):
         """Extract relevant state features from the environment observation."""
@@ -43,7 +43,7 @@ def get_action(obs):
         station_west = (taxi_row, taxi_col - 1) in stations
         
         # Return state representation as a tuple with reordered elements
-        return (obstacle_north, obstacle_south, obstacle_east, obstacle_west, passenger_look, destination_look, passenger_picked_up, station_north, station_south, station_east, station_west, station_middle, pre_action)
+        return (obstacle_north, obstacle_south, obstacle_east, obstacle_west, passenger_look, destination_look, passenger_picked_up, station_north, station_south, station_east, station_west, station_middle, previous_action)
 
     def softmax(x):
         """Compute softmax values for array x."""
@@ -51,7 +51,7 @@ def get_action(obs):
         return exp_x / np.sum(exp_x)
     
     # Get current state using the same function as in training
-    state = extract_state_features(obs, passenger_picked_up, pre_action)
+    state = extract_state_features(obs, passenger_picked_up, previous_action)
     
     # Action constants for better readability
     PICKUP = 4
@@ -71,7 +71,7 @@ def get_action(obs):
     elif action == DROPOFF and state[5] == 1 and at_station and passenger_picked_up:  # Dropoff action at destination, at station, with passenger
         passenger_picked_up = False
     
-    pre_action = action
+    previous_action = action
     
     return action
 
