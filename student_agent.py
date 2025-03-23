@@ -39,25 +39,25 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #     return abs(a[0] - b[0]) + abs(a[1] - b[1])
 
 # # # Load the model
-model = DQN(state_size=6, action_size=6, gamma=0.99, batch_size=128)
+model = DQN(state_size=8, action_size=6, gamma=0.99, batch_size=128)
 
 model.load("q_network_ensemble_2.pt")
 
-def get_action(obs, epsilon = 0):
+def get_action(obs, epsilon=0.05):  # Add a small exploration probability
     """
     Takes an observation as input and returns an action (0-5).
-    Uses the trained Q-network to select the best action.
+    Uses the trained Q-network to select the best action with some robustness for unseen states.
     """
     if model is None:
         return random.choice([0, 1, 2, 3, 4, 5])
     
+    # Always maintain some exploration to handle unseen states
     if random.random() < epsilon:
         return random.choice([0, 1, 2, 3, 4, 5])
-    else:
-        state_tensor = preprocess_state(obs)
-        with torch.no_grad():
-            q_values = model.policy_net(state_tensor)
-        return torch.argmax(q_values).item()
+    
+    state_tensor = preprocess_state(obs)
+    
+    return torch.argmax(model.policy_net(state_tensor)).item()
 
 # # implement q_table version
 # def get_action(obs):
@@ -66,30 +66,30 @@ def get_action(obs, epsilon = 0):
 # # Ensemble version
 
 # # # Load ensemble models
-# # NUM_MODELS = 11  # Match the number used in training
-# # models = []
-# # model_path_prefix = "q_network"
+# # # NUM_MODELS = 11  # Match the number used in training
+# # # models = []
+# # # model_path_prefix = "q_network"
 
-# # # Try to load ensemble models
-# # try:
-# #     for i in range(NUM_MODELS):
-# #         model_path = f"{model_path_prefix}_{i}.pt"
-# #         if os.path.exists(model_path):
-# #             model = QNetwork(4, 6).to(DEVICE)
-# #             model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-# #             model.eval()
-# #             models.append(model)
+# # # # Try to load ensemble models
+# # # try:
+# # #     for i in range(NUM_MODELS):
+# # #         model_path = f"{model_path_prefix}_{i}.pt"
+# # #         if os.path.exists(model_path):
+# # #             model = QNetwork(4, 6).to(DEVICE)
+# # #             model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+# # #             model.eval()
+# # #             models.append(model)
     
-# #     if not models:  # If no ensemble models found, try loading single model
-# #         model = QNetwork(4, 6).to(DEVICE)
-# #         model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
-# #         model.eval()
-# #         models.append(model)
+# # #     if not models:  # If no ensemble models found, try loading single model
+# # #         model = QNetwork(4, 6).to(DEVICE)
+# # #         model.load_state_dict(torch.load("q_network.pt", map_location=DEVICE))
+# # #         model.eval()
+# # #         models.append(model)
     
-# #     print(f"Successfully loaded {len(models)} model(s)")
-# # except Exception as e:
-# #     print(f"Error loading models: {e}")
-# #     models = []
+# # #     print(f"Successfully loaded {len(models)} model(s)")
+# # # except Exception as e:
+# # #     print(f"Error loading models: {e}")
+# # #     models = []
 
 # # def get_action(obs):
 # #     """
