@@ -48,7 +48,7 @@ def get_action(obs):
             passenger_look, destination_look,
             station_north, station_south, station_east, station_west, station_middle,
             obstacle_north, obstacle_south, obstacle_east, obstacle_west,
-            previous_action
+            previous_action,
         )
 
     def softmax(x):
@@ -67,8 +67,8 @@ def get_action(obs):
     if state not in q_table:
         action = np.random.randint(4)  # Random action if state not in Q-table
     else:
-        probs = softmax(q_table[state])
-        action = np.random.choice(range(6), p=probs)  # Use softmax probabilities
+        action_probs = softmax(q_table[state])
+        action = np.random.choice(range(6), p=action_probs)  # Use softmax probabilities
     
     # Update passenger status based on action
     at_station = state[7]  # station_middle
